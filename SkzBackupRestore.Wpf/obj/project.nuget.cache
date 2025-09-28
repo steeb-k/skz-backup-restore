@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "dgSpecHash": "k/8ODaFGIic=",
+  "success": true,
+  "projectFilePath": "c:\\Users\\steeb\\skz-backup-restore\\SkzBackupRestore.Wpf\\SkzBackupRestore.Wpf.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\steeb\\.nuget\\packages\\modernwpfui\\0.9.6\\modernwpfui.0.9.6.nupkg.sha512",
+    "C:\\Users\\steeb\\.nuget\\packages\\system.codedom\\8.0.0\\system.codedom.8.0.0.nupkg.sha512",
+    "C:\\Users\\steeb\\.nuget\\packages\\system.management\\8.0.0\\system.management.8.0.0.nupkg.sha512",
+    "C:\\Users\\steeb\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.18362.57\\microsoft.windows.sdk.net.ref.10.0.18362.57.nupkg.sha512"
+  ],
+  "logs": []
+}

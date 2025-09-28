@@ -1,0 +1,10 @@
+<Page x:Class="SkzBackupRestore.Wpf.Pages.RestorePage"
+            xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+            xmlns:ui="http://schemas.modernwpf.com/2019"
+            ui:ThemeManager.IsThemeAware="True"
+            Title="Restore">
+    <Grid Margin="16">
+            <ContentControl Content="Restore" Style="{StaticResource PageHeaderControl}" />
+    </Grid>
+</Page>

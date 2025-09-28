@@ -1,0 +1,61 @@
+<Window x:Class="SkzBackupRestore.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        mc:Ignorable="d"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        ui:ThemeManager.IsThemeAware="True"
+    ui:TitleBar.ExtendViewIntoTitleBar="True"
+    Title="SKZ Backup and Restore" Height="720" Width="1120"
+    MinWidth="640" MinHeight="480">
+    <Grid>
+    <ui:NavigationView x:Name="Nav"
+               IsBackButtonVisible="Collapsed"
+               PaneDisplayMode="Auto"
+               IsPaneOpen="True"
+               CompactPaneLength="56"
+               IsPaneToggleButtonVisible="False"
+                           CompactModeThresholdWidth="0"
+                           IsSettingsVisible="True"
+                           ItemInvoked="Nav_ItemInvoked"
+                           SizeChanged="Nav_SizeChanged"
+                           IsTitleBarAutoPaddingEnabled="False">
+            <!-- App title shown above the navigation items in the left pane -->
+            <ui:NavigationView.PaneHeader>
+                <StackPanel Orientation="Horizontal" Margin="12,8,12,8" VerticalAlignment="Center">
+                    <TextBlock Text="SKZ Backup and Restore"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                </StackPanel>
+            </ui:NavigationView.PaneHeader>
+            <ui:NavigationView.MenuItems>
+                <ui:NavigationViewItem Content="Backup" Tag="Backup">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74E;" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="Restore" Tag="Restore">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE72C;" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="Images" Tag="Images">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8B9;" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem Content="Utilities" Tag="Utilities">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7F8;" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.MenuItems>
+            <Frame x:Name="ContentFrame" NavigationUIVisibility="Hidden" />
+        </ui:NavigationView>
+    <Grid x:Name="DragGrid" Background="Transparent" Height="32" VerticalAlignment="Top" MouseLeftButtonDown="DragGrid_MouseLeftButtonDown" />
+    </Grid>
+</Window>
