@@ -4,6 +4,15 @@ A Windows desktop app (WPF, .NET 8) for making full-disk image backups with a si
 
 ⚠️ Work-in-progress: Expect sharp edges. Use on test machines/disks first. Running as Administrator is required for disk access and VSS. Data loss is possible if misused.
 
+## Goals
+Ultimately, this project aims to create a performant, portable tool for computer technicians and home users. The image file format is based on open standards and is fully open-sourced. Multi-threading support is in its initial stages but already backups are fairly fast compared to a raw disk image copy. 
+
+Images should be able to be mounted and read directly without using third-party software. Currently, images can be mounted as a WebDAV share and used as a network drive. Alternatively, if space allows, they can be converted into VHD images and attached via Disk Management. 
+
+Images should be verifiable. The backend application `imaging-utility` already has this functionality and has proven to be reliable.
+
+This project needs testers. 
+
 ## What it does today
 
 - Full physical disk backup via the ImagingUtility CLI

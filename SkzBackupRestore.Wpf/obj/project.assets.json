@@ -1070,11 +1070,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\steeb\\skz-backup-restore\\SkzBackupRestore.Wpf\\SkzBackupRestore.Wpf.csproj",
+      "projectUniqueName": "C:\\Users\\steeb\\skz-backup-restore\\SkzBackupRestore.Wpf\\SkzBackupRestore.Wpf.csproj",
       "projectName": "SkzBackupRestore.Wpf",
-      "projectPath": "c:\\Users\\steeb\\skz-backup-restore\\SkzBackupRestore.Wpf\\SkzBackupRestore.Wpf.csproj",
+      "projectPath": "C:\\Users\\steeb\\skz-backup-restore\\SkzBackupRestore.Wpf\\SkzBackupRestore.Wpf.csproj",
       "packagesPath": "C:\\Users\\steeb\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\steeb\\skz-backup-restore\\SkzBackupRestore.Wpf\\obj\\",
+      "outputPath": "C:\\Users\\steeb\\skz-backup-restore\\SkzBackupRestore.Wpf\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

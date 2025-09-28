@@ -29,6 +29,16 @@ namespace SkzBackupRestore.Wpf
             ContentFrame.Navigate(new Pages.BackupPage());
 
             // DragGrid is marked as a drag target via XAML (ui:TitleBar.SetIsDragTarget="True").
+            // Debounce timer for theme change notifications from WndProc
+            _themeMsgDebounce = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Normal, (s, e) =>
+            {
+                try
+                {
+                    _themeMsgDebounce?.Stop();
+                    ThemeService.ApplyCurrentPolicy(Services.SettingsService.Settings.PreferDarkOnLight, animate: true);
+                }
+                catch { }
+            }, Dispatcher.CurrentDispatcher);
         }
 
         private void Nav_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)

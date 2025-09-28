@@ -585,75 +585,79 @@ namespace SkzBackupRestore.Wpf.Views
             catch { }
         }
 
-        private async Task<(string devicePath, bool isNtfs, string volumeGuid)> ResolvePartitionInfoAsync(PartitionItem part)
+        private Task<(string devicePath, bool isNtfs, string volumeGuid)> ResolvePartitionInfoAsync(PartitionItem part)
         {
-            // Returns: devicePath (prefer Volume GUID path), whether FS is NTFS, and the GUID (without braces) for naming
-            string devicePath = string.Empty;
-            string volumeGuid = string.Empty;
-            bool isNtfs = false;
-            try
+            // Wrap synchronous WMI queries in Task.Run to avoid blocking the UI thread.
+            return Task.Run(() =>
             {
-                var scope = new ManagementScope(@"\\.\root\Microsoft\Windows\Storage", new ConnectionOptions { EnablePrivileges = true });
-                scope.Connect();
-                string q = $"SELECT AccessPaths FROM MSFT_Partition WHERE DiskNumber = {part.DiskNumber} AND PartitionNumber = {part.PartitionNumber}";
-                using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery(q));
-                foreach (ManagementObject mo in searcher.Get())
-                {
-                    var aps = mo["AccessPaths"] as string[];
-                    if (aps != null && aps.Length > 0)
-                    {
-                        var vol = aps.FirstOrDefault(a => a != null && a.StartsWith("\\\\?\\Volume", StringComparison.OrdinalIgnoreCase));
-                        devicePath = !string.IsNullOrEmpty(vol) ? vol! : aps[0];
-                        if (!string.IsNullOrEmpty(vol))
-                        {
-                            // Extract GUID within braces
-                            var m = Regex.Match(vol, @"Volume\{(?<g>[^}]+)\}", RegexOptions.IgnoreCase);
-                            if (m.Success) volumeGuid = m.Groups["g"].Value;
-                        }
-                        break;
-                    }
-                }
-
-                // Determine filesystem via MSFT_Volume if we have a volume path
-                if (!string.IsNullOrEmpty(devicePath) && devicePath.StartsWith("\\\\?\\Volume", StringComparison.OrdinalIgnoreCase))
-                {
-                    string volQuery = $"SELECT FileSystem FROM MSFT_Volume WHERE Path = '{devicePath.Replace("'", "''")}'";
-                    using var vsearch = new ManagementObjectSearcher(scope, new ObjectQuery(volQuery));
-                    foreach (ManagementObject vo in vsearch.Get())
-                    {
-                        var fs = vo["FileSystem"] as string;
-                        if (!string.IsNullOrEmpty(fs) && fs.Equals("NTFS", StringComparison.OrdinalIgnoreCase)) { isNtfs = true; }
-                        break;
-                    }
-                }
-            }
-            catch { }
-
-            if (string.IsNullOrEmpty(devicePath) && !string.IsNullOrEmpty(part.DriveLetter))
-            {
-                // Fallback: use drive letter; try to resolve GUID via Win32_Volume for naming
-                devicePath = part.DriveLetter + ":\\";
+                // Returns: devicePath (prefer Volume GUID path), whether FS is NTFS, and the GUID (without braces) for naming
+                string devicePath = string.Empty;
+                string volumeGuid = string.Empty;
+                bool isNtfs = false;
                 try
                 {
-                    var wmi = new ManagementScope(@"\\.\root\cimv2"); wmi.Connect();
-                    string dq = $"SELECT DeviceID, FileSystem FROM Win32_Volume WHERE DriveLetter = '{part.DriveLetter.Replace("'", "''")}:" + "'";
-                    using var dsearch = new ManagementObjectSearcher(wmi, new ObjectQuery(dq));
-                    foreach (ManagementObject dvo in dsearch.Get())
+                    var scope = new ManagementScope(@"\\.\root\Microsoft\Windows\Storage", new ConnectionOptions { EnablePrivileges = true });
+                    scope.Connect();
+                    string q = $"SELECT AccessPaths FROM MSFT_Partition WHERE DiskNumber = {part.DiskNumber} AND PartitionNumber = {part.PartitionNumber}";
+                    using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery(q));
+                    foreach (ManagementObject mo in searcher.Get())
                     {
-                        var devId = dvo["DeviceID"] as string; var fs = dvo["FileSystem"] as string;
-                        if (!string.IsNullOrEmpty(devId))
+                        var aps = mo["AccessPaths"] as string[];
+                        if (aps != null && aps.Length > 0)
                         {
-                            var m = Regex.Match(devId, @"Volume\{(?<g>[^}]+)\}", RegexOptions.IgnoreCase);
-                            if (m.Success) volumeGuid = m.Groups["g"].Value;
+                            var vol = aps.FirstOrDefault(a => a != null && a.StartsWith("\\\\?\\Volume", StringComparison.OrdinalIgnoreCase));
+                            devicePath = !string.IsNullOrEmpty(vol) ? vol! : aps[0];
+                            if (!string.IsNullOrEmpty(vol))
+                            {
+                                // Extract GUID within braces
+                                var m = Regex.Match(vol, @"Volume\{(?<g>[^}]+)\}", RegexOptions.IgnoreCase);
+                                if (m.Success) volumeGuid = m.Groups["g"].Value;
+                            }
+                            break;
                         }
-                        if (!string.IsNullOrEmpty(fs) && fs.Equals("NTFS", StringComparison.OrdinalIgnoreCase)) isNtfs = true;
-                        break;
+                    }
+
+                    // Determine filesystem via MSFT_Volume if we have a volume path
+                    if (!string.IsNullOrEmpty(devicePath) && devicePath.StartsWith("\\\\?\\Volume", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string volQuery = $"SELECT FileSystem FROM MSFT_Volume WHERE Path = '{devicePath.Replace("'", "''")}'";
+                        using var vsearch = new ManagementObjectSearcher(scope, new ObjectQuery(volQuery));
+                        foreach (ManagementObject vo in vsearch.Get())
+                        {
+                            var fs = vo["FileSystem"] as string;
+                            if (!string.IsNullOrEmpty(fs) && fs.Equals("NTFS", StringComparison.OrdinalIgnoreCase)) { isNtfs = true; }
+                            break;
+                        }
                     }
                 }
                 catch { }
-            }
 
-            return (devicePath, isNtfs, volumeGuid);
+                if (string.IsNullOrEmpty(devicePath) && !string.IsNullOrEmpty(part.DriveLetter))
+                {
+                    // Fallback: use drive letter; try to resolve GUID via Win32_Volume for naming
+                    devicePath = part.DriveLetter + "\\";
+                    try
+                    {
+                        var wmi = new ManagementScope(@"\\.\root\cimv2"); wmi.Connect();
+                        string dq = $"SELECT DeviceID, FileSystem FROM Win32_Volume WHERE DriveLetter = '{part.DriveLetter.Replace("'", "''")}:'";
+                        using var dsearch = new ManagementObjectSearcher(wmi, new ObjectQuery(dq));
+                        foreach (ManagementObject dvo in dsearch.Get())
+                        {
+                            var devId = dvo["DeviceID"] as string; var fs = dvo["FileSystem"] as string;
+                            if (!string.IsNullOrEmpty(devId))
+                            {
+                                var m = Regex.Match(devId, @"Volume\{(?<g>[^}]+)\}", RegexOptions.IgnoreCase);
+                                if (m.Success) volumeGuid = m.Groups["g"].Value;
+                            }
+                            if (!string.IsNullOrEmpty(fs) && fs.Equals("NTFS", StringComparison.OrdinalIgnoreCase)) isNtfs = true;
+                            break;
+                        }
+                    }
+                    catch { }
+                }
+
+                return (devicePath, isNtfs, volumeGuid);
+            });
         }
     }
 

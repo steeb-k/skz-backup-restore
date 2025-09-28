@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SkzBackupRestore.Wpf")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e649b1a81bb668454cb3d2b15bbbe03ee4e772f9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bdd41ebb7d55611fee7e1a711e930266c2a857c7")]
 [assembly: System.Reflection.AssemblyProductAttribute("SkzBackupRestore.Wpf")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SkzBackupRestore.Wpf")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

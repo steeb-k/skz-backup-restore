@@ -35,8 +35,16 @@ namespace SkzBackupRestore.Wpf.Views
                 // Apply dark title bar for standard framed window (Win10 1809+)
                 TrySetDarkTitleBar(source.Handle, true);
 
-                // Remove titlebar icon robustly (set icons to null, clear class icons, and add dialog modal frame)
-                TryHideTitleBarIcon(source.Handle);
+                // Ensure the wizard window shows the same icon as the main application.
+                // Previously we removed the title bar icon; that hides the app icon. Copy the
+                // main window's Icon (if available) so wizard windows match the main app.
+                try
+                {
+                    var mainIcon = System.Windows.Application.Current?.MainWindow?.Icon;
+                    if (mainIcon != null)
+                        this.Icon = mainIcon;
+                }
+                catch { }
             }
         }
 
