@@ -5,7 +5,7 @@
              x:Name="RootControl"
              ui:ThemeManager.IsThemeAware="True">
     <Border Padding="16" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
-    <Grid MinWidth="540">
+    <Grid MinWidth="560">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -171,11 +171,11 @@
                 <CheckBox x:Name="ExternalConsoleCheckbox"
                   Margin="16,0,0,0"
                           VerticalAlignment="Center"
-                          Content="Run in external console (fallback)"
+                          Content="Run in external console"
                           ToolTip="Use an external console window so ImagingUtility can use its normal console progress."/>
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,0,0">
                 <Button x:Name="CancelButton" Content="Cancel" Margin="0,0,8,0" Click="Cancel_Click" IsCancel="True"/>
                 <Button x:Name="StartButton" Content="Start Backup" Click="Start_Click" IsDefault="True"/>
             </StackPanel>

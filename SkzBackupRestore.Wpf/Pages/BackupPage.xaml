@@ -32,6 +32,31 @@
                                                         </StackPanel>
                                                 </Grid>
                                         </Button>
+
+                                        <!-- Operation entry: Partition Backup (clickable tile) -->
+                                        <Button Style="{StaticResource TileButton}" Margin="0,8,0,0" Click="PartitionBackup_Click">
+                                                <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="12" />
+                                                                <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Icon on the left -->
+                                                        <ui:FontIcon Grid.Column="0" FontFamily="Segoe MDL2 Assets" Glyph="&#xE870;" FontSize="28"
+                                                                                 Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+
+                                                        <!-- Title and description on the right -->
+                                                        <StackPanel Grid.Column="2" Orientation="Vertical" Margin="0,6,0,6">
+                                                                <TextBlock Text="Partition Backup"
+                                                                                   FontSize="18"
+                                                                                   FontWeight="SemiBold"
+                                                                                   Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+                                                                <TextBlock Text="Backup an individual partition to an image." Margin="0,4,0,0"
+                                                                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                                                        </StackPanel>
+                                                </Grid>
+                                        </Button>
                 </StackPanel>
         </Grid>
 </Page>

@@ -5,7 +5,7 @@ Last updated: 2025-09-26
 Legend: [P0] critical, [P1] important, [P2] nice-to-have
 
 ## Initial Implementation
-- [ ] [P0] GUI wrapper for ImagingUtility
+- [x] [P0] GUI wrapper for ImagingUtility
   - Create an application that looks like a "Modern" Windows UI application
   - Interface with main menu options on the left-hand side (styled like the "Settings" app in Windows 11) and functions in an interface on the right
   - Dark mode support needs to be integral throughout the entire design
@@ -15,7 +15,7 @@ Legend: [P0] critical, [P1] important, [P2] nice-to-have
 ## Backup Section
 - [ ] [P0] VSS or SbS
   - All backup methods should include an option for "Sector-by-Sector" cloning if VSS can't work or errors are detected that keep VSS from working - it should be able to switch to sector-by-sector automatically if a failure is detected, but alert the end-user to it. 
-- [ ] [P0] Full disk backup
+- [x] [P0] Full disk backup
   - This will be the primary use-case for now. We'll need to thoroughly test full-disk backups (including full-disk backups of the currently-booted disk.)
 - [ ] [P0] Single partition backup
 - [ ] [P1] Disk-to-disk clone

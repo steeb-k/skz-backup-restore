@@ -26,6 +26,7 @@ namespace SkzBackupRestore.Wpf.Views
         private string? _runLogPath;
         private volatile bool _sawConsoleHandleIssue;
         private volatile bool _cancelRequested;
+        private string? _originalWindowTitle;
         public ObservableCollection<PhysicalDiskItem> Disks { get; } = new();
         public IReadOnlyList<int> SelectedDiskNumbers => Disks.Where(d => d.IsSelected).Select(d => d.DiskNumber).ToList();
         public static readonly DependencyProperty ErrorMessageProperty =
@@ -515,29 +516,33 @@ namespace SkzBackupRestore.Wpf.Views
                 OnUI(() => StatusText = "Cancelling...");
                 AppendFriendlyLog("Attempt to cancel operation");
                 // Graceful wait: give the process a short window to exit before forcing termination
-                var p = _currentProcess;
-                if (p != null)
+                Task.Run(async () =>
                 {
-                    Task.Run(async () =>
+                    const int timeoutMs = 7000; // configurable grace period
+                    const int pollMs = 150;
+                    int waited = 0;
+                    try
                     {
-                        const int timeoutMs = 7000; // configurable grace period
-                        const int pollMs = 150;
-                        int waited = 0;
-                        try
+                        while (waited < timeoutMs)
                         {
-                            while (waited < timeoutMs)
+                            var p = _currentProcess;
+                            if (p != null)
                             {
-                                if (p.HasExited) return;
-                                await Task.Delay(pollMs).ConfigureAwait(false);
-                                waited += pollMs;
+                                try { if (p.HasExited) return; } catch { return; }
                             }
+                            await Task.Delay(pollMs).ConfigureAwait(false);
+                            waited += pollMs;
                         }
-                        catch { return; }
-                        // Timeout elapsed; force kill
+                    }
+                    catch { return; }
+                    // Timeout elapsed; force kill the current process if still running
+                    var toKill = _currentProcess;
+                    if (toKill != null)
+                    {
                         AppendFriendlyLog("Cancellation timeout elapsed. Forcing termination...");
-                        try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch (Exception ex) { AppendFriendlyLog($"Failed to force terminate: {ex.Message}"); }
-                    });
-                }
+                        try { if (!toKill.HasExited) toKill.Kill(entireProcessTree: true); } catch (Exception ex) { AppendFriendlyLog($"Failed to force terminate: {ex.Message}"); }
+                    }
+                });
             }
             catch { }
         }
@@ -636,7 +641,7 @@ namespace SkzBackupRestore.Wpf.Views
                 foreach (var disk in selected)
                 {
                     if (ct.IsCancellationRequested) { allOk = false; break; }
-                    OnUI(() => { Progress.IsIndeterminate = true; Progress.Value = 0; StatusText = $"Backing up disk {disk.DiskNumber}..."; SpeedText = string.Empty; EtaText = string.Empty; });
+                    OnUI(() => { Progress.IsIndeterminate = true; Progress.Value = 0; StatusText = $"Backing up disk {disk.DiskNumber}..."; SpeedText = string.Empty; EtaText = string.Empty; UpdateWindowTitlePercent(null, prefix:$"Disk {disk.DiskNumber} backup"); });
                     AppendFriendlyLog($"Starting backup of Disk {disk.DiskNumber} to '{outDir}' (VSS enabled)...");
                     AppendLog($"Backing up Disk {disk.DiskNumber} to '{outDir}' (with VSS)...");
                     string backupArgs = $"backup-disk --disk {disk.DiskNumber} --out-dir \"{outDir}\" --use-vss";
@@ -669,7 +674,7 @@ namespace SkzBackupRestore.Wpf.Views
                     if (doVerify)
                     {
                         if (ct.IsCancellationRequested) { allOk = false; break; }
-                        OnUI(() => { Progress.IsIndeterminate = true; Progress.Value = 0; StatusText = $"Verifying set in '{outDir}'{(quick ? " (quick)" : string.Empty)}..."; SpeedText = string.Empty; EtaText = string.Empty; });
+                        OnUI(() => { Progress.IsIndeterminate = true; Progress.Value = 0; StatusText = $"Verifying set in '{outDir}'{(quick ? " (quick)" : string.Empty)}..."; SpeedText = string.Empty; EtaText = string.Empty; UpdateWindowTitlePercent(null, prefix:"Verify set"); });
                         AppendFriendlyLog($"Starting verification for '{outDir}'{(quick ? " (quick)" : string.Empty)}...");
                         AppendLog($"Verifying backup set in '{outDir}'{(quick ? " (quick)" : string.Empty)}...");
                         string verifyArgs = $"verify-set --set-dir \"{outDir}\"" + (quick ? " --quick" : string.Empty);
@@ -716,6 +721,7 @@ namespace SkzBackupRestore.Wpf.Views
                 // Mark completion: change Cancel to Close
                 if (FindParentWindow() is System.Windows.Window wnd)
                 {
+                    try { if (!string.IsNullOrEmpty(_originalWindowTitle)) wnd.Title = _originalWindowTitle; } catch { }
                     if (TryFindChild<System.Windows.Controls.Button>(this, "StartButton") is System.Windows.Controls.Button startBtn)
                     {
                         startBtn.IsEnabled = false;
@@ -736,6 +742,7 @@ namespace SkzBackupRestore.Wpf.Views
             // Fix window width (keep it static)
             if (FindParentWindow() is System.Windows.Window wnd)
             {
+                _originalWindowTitle = wnd.Title;
                 wnd.MinWidth = wnd.ActualWidth;
                 wnd.MaxWidth = wnd.ActualWidth;
             }
@@ -748,6 +755,11 @@ namespace SkzBackupRestore.Wpf.Views
             RunPanel.Visibility = Visibility.Visible;
             // Disable validation toggle but keep it visible
             ValidateAfterCheckbox.IsEnabled = false;
+            // Disable external console toggle once a process is about to start
+            if (ExternalConsoleCheckbox != null)
+            {
+                ExternalConsoleCheckbox.IsEnabled = false;
+            }
             // Hide Start button during run
             if (StartButton != null)
             {
@@ -848,11 +860,13 @@ namespace SkzBackupRestore.Wpf.Views
                     }
                     catch { }
                     // Do not reset the progress bar here; keep the last reported value visible.
+                    _currentProcess = null; // clear after exit
                     return (code == 0, code);
                 }
             }
             finally
             {
+                // best-effort clear; already cleared above after exit
                 _currentProcess = null;
             }
         }
@@ -909,11 +923,14 @@ namespace SkzBackupRestore.Wpf.Views
                         WorkingDirectory = Path.GetDirectoryName(exePath) ?? Environment.CurrentDirectory,
                         WindowStyle = ProcessWindowStyle.Normal
                     };
-                    using var p = Process.Start(psi);
-                    if (p == null) return (false, -1);
+                    var p = Process.Start(psi);
+                    _currentProcess = p; // track for cancel
+                    if (p == null) { _currentProcess = null; return (false, -1); }
                     // Best-effort cancel: we cannot kill external console easily here; user can close it.
                     p.WaitForExit();
-                    return (p.ExitCode == 0, p.ExitCode);
+                    var code = p.ExitCode;
+                    _currentProcess = null; // clear after exit
+                    return (code == 0, code);
                 }
                 catch (Exception ex)
                 {
@@ -948,6 +965,7 @@ namespace SkzBackupRestore.Wpf.Views
                             Progress.IsIndeterminate = false;
                             Progress.Maximum = 100;
                             Progress.Value = dpct;
+                            UpdateWindowTitlePercent(dpct);
                         });
                     }
                 }
@@ -1068,6 +1086,28 @@ namespace SkzBackupRestore.Wpf.Views
             if (path == null) return "''";
             // PowerShell single-quote with '' escaping inside
             return "'" + path.Replace("'", "''") + "'";
+        }
+
+        private void UpdateWindowTitlePercent(double? percent, string? prefix = null)
+        {
+            try
+            {
+                var wnd = FindParentWindow();
+                if (wnd == null) return;
+                if (percent == null)
+                {
+                    // Reset to base title with optional prefix
+                    if (!string.IsNullOrEmpty(_originalWindowTitle))
+                        wnd.Title = string.IsNullOrEmpty(prefix) ? _originalWindowTitle : $"{_originalWindowTitle} — {prefix}";
+                    return;
+                }
+                double p = Math.Max(0, Math.Min(100, percent.Value));
+                string ptext = p % 1 == 0 ? ((int)p).ToString(CultureInfo.InvariantCulture) : p.ToString("0.0", CultureInfo.InvariantCulture);
+                string baseTitle = !string.IsNullOrEmpty(_originalWindowTitle) ? _originalWindowTitle : wnd.Title;
+                string left = string.IsNullOrEmpty(prefix) ? baseTitle : $"{baseTitle} — {prefix}";
+                wnd.Title = $"{left} ({ptext}%)";
+            }
+            catch { }
         }
     }
 

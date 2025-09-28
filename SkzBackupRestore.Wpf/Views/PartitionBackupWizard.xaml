@@ -1,0 +1,204 @@
+<UserControl x:Class="SkzBackupRestore.Wpf.Views.PartitionBackupWizard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.modernwpf.com/2019"
+             x:Name="RootControl"
+             ui:ThemeManager.IsThemeAware="True">
+    <Border Padding="16" Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+    <Grid MinWidth="560">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Backup name input -->
+            <StackPanel x:Name="NamePanel" Grid.Row="0" Margin="0,0,0,0">
+                <TextBlock Text="Backup Name" Margin="0,0,0,6"
+                           Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                <TextBox x:Name="BackupNameTextBox" ui:ControlHelper.PlaceholderText="e.g. MyLaptop-2025-09-27"
+                         VerticalAlignment="Center"/>
+                <TextBlock Text="This will be the folder created under the selected backup location."
+                           Margin="0,6,0,0"
+                           FontSize="12"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"/>
+            </StackPanel>
+
+            <!-- Full-width partitions list (grouped by disk) -->
+            <StackPanel x:Name="PartitionsPanel" Grid.Row="1" Margin="0,14,0,0">
+                <DockPanel x:Name="RefreshPanel" LastChildFill="False" Margin="0,0,0,8">
+                    <Button Click="PartitionBackupWizard_Loaded" HorizontalAlignment="Right" ToolTip="Refresh" Padding="8,4">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72C;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Refresh" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </DockPanel>
+                <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0" CornerRadius="4" Background="Transparent">
+                    <Grid>
+                        <ScrollViewer MaxHeight="260" Background="Transparent">
+                            <ListBox x:Name="PartitionsList" Margin="4"
+                                     SelectionMode="Multiple"
+                                     HorizontalContentAlignment="Stretch"
+                                     Background="Transparent"
+                                     BorderThickness="0">
+                                <ListBox.GroupStyle>
+                                    <GroupStyle>
+                                        <GroupStyle.HeaderTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" Margin="4,2,0,2" Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}"/>
+                                            </DataTemplate>
+                                        </GroupStyle.HeaderTemplate>
+                                    </GroupStyle>
+                                </ListBox.GroupStyle>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                        <Setter Property="Padding" Value="8,4"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Card"
+                                Margin="0,1"
+                                CornerRadius="4"
+                                Background="Transparent"
+                                BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                                BorderThickness="1"
+                                SnapsToDevicePixels="True">
+                                                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                                          Margin="{TemplateBinding Padding}"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Card" Property="Background" Value="{DynamicResource SystemControlHighlightListLowBrush}"/>
+                                                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="Card" Property="Background" Value="{DynamicResource SystemControlHighlightListMediumBrush}"/>
+                                                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter TargetName="Card" Property="Opacity" Value="0.6"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                            <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" Grid.Column="0" Margin="0,0,0,0">
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                                                <TextBlock Text="{Binding Display}" Margin="4,0,0,0"
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                                                           FontSize="13"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <!-- Right column reserved for future details (fs/type) -->
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </ScrollViewer>
+                        <!-- Empty state overlay when there are no partitions -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="No partitions found"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasItems, ElementName=PartitionsList}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <TextBlock Text="Select one or more partitions. Partitions without drive letters are included."
+                           Margin="0,6,0,0" FontSize="12"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"/>
+            </StackPanel>
+
+            <!-- Backup location picker (below the list, full width) -->
+            <StackPanel x:Name="LocationPanel" Grid.Row="2" Margin="0,14,0,0">
+                <TextBlock Text="Backup Location" Margin="0,0,0,6" FontWeight="SemiBold"
+                           Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                <DockPanel LastChildFill="True">
+                    <Button Content="Browse..." DockPanel.Dock="Right" Margin="8,0,0,0" Click="BrowseFolder_Click"/>
+                    <TextBox x:Name="BackupLocationTextBox" IsReadOnly="True" VerticalAlignment="Center"
+                             Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                </DockPanel>
+                <TextBlock Text="Select a folder where a subfolder with the backup name will be created."
+                           Margin="0,6,0,0" FontSize="12"
+                           Foreground="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"/>
+            </StackPanel>
+
+            <!-- Footer: left = options, right = buttons -->
+            <Grid Grid.Row="3" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                    <CheckBox x:Name="ValidateAfterCheckbox"
+                              VerticalAlignment="Center"
+                              Content="Perform image validation upon completion"/>
+                    <CheckBox x:Name="ExternalConsoleCheckbox"
+                              Margin="16,0,0,0"
+                              VerticalAlignment="Center"
+                              Content="Run in external console"
+                              ToolTip="Use an external console window so ImagingUtility can use its normal console progress."/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,0,0">
+                    <Button x:Name="CancelButton" Content="Cancel" Margin="0,0,8,0" Click="Cancel_Click" IsCancel="True"/>
+                    <Button x:Name="StartButton" Content="Start Backup" Click="Start_Click" IsDefault="True"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Run panel (shown during/after operation) -->
+            <StackPanel x:Name="RunPanel" Grid.Row="0" Grid.RowSpan="3" Visibility="Collapsed">
+                <ProgressBar x:Name="Progress" IsIndeterminate="True" Height="4"/>
+                <TextBlock x:Name="StatusTextBlock" Margin="0,8,0,0"
+                           Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           Text="{Binding StatusText, ElementName=RootControl}"/>
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding SpeedText, ElementName=RootControl}"
+                               Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}"/>
+                    <TextBlock Grid.Column="1" Text="{Binding EtaText, ElementName=RootControl}"
+                               Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}"
+                               HorizontalAlignment="Right"/>
+                </Grid>
+                <TextBox x:Name="LogTextBox" Margin="0,10,0,0" Height="220" TextWrapping="Wrap"
+                         AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                         Background="{DynamicResource SystemControlBackgroundAltMediumLowBrush}"
+                         Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                         Text="{Binding LogText, ElementName=RootControl}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

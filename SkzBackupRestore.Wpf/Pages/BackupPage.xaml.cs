@@ -26,5 +26,17 @@ namespace SkzBackupRestore.Wpf.Pages
                 // TODO: Launch backup flow with full disk imaging using control.SelectedDiskNumbers
             }
         }
+
+        private void PartitionBackup_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var control = new PartitionBackupWizard();
+            var wizard = new WizardWindow
+            {
+                Title = "Partition Backup Wizard",
+                Content = control
+            };
+            wizard.Owner = System.Windows.Window.GetWindow(this);
+            wizard.ShowDialog();
+        }
     }
 }

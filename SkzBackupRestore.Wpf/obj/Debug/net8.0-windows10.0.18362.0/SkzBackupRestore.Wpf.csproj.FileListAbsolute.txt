@@ -174,3 +174,5 @@ c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\bin\Debug\net8.0-windows1
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\bin\Debug\net8.0-windows10.0.18362.0\ThirdParty\ImagingUtility\win-arm64\ImagingUtility.exe
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\bin\Debug\net8.0-windows10.0.18362.0\ThirdParty\ImagingUtility\win-x64\ImagingUtility.exe
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\obj\Debug\net8.0-windows10.0.18362.0\SkzBackupRestore.Wpf_Content.g.cs
+c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\obj\Debug\net8.0-windows10.0.18362.0\Views\PartitionBackupWizard.baml
+c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\obj\Debug\net8.0-windows10.0.18362.0\Views\PartitionBackupWizard.g.cs

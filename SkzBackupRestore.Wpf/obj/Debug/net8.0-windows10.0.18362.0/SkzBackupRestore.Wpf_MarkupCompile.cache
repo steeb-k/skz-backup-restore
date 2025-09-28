@@ -10,11 +10,11 @@ none
 false
 TRACE;DEBUG;NET;NET8_0;NETCOREAPP
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\App.xaml
-10413380196
+11-1582169177
 2-581728639
-151237110753
+16-932721546
 212-493790928
-MainWindow.xaml;Pages\BackupPage.xaml;Pages\ImagesPage.xaml;Pages\RestorePage.xaml;Pages\SettingsPage.xaml;Pages\UtilitiesPage.xaml;Themes\Dark.xaml;Themes\Light.xaml;Views\DiskBackupWizard.xaml;Views\WizardWindow.xaml;
+MainWindow.xaml;Pages\BackupPage.xaml;Pages\ImagesPage.xaml;Pages\RestorePage.xaml;Pages\SettingsPage.xaml;Pages\UtilitiesPage.xaml;Themes\Dark.xaml;Themes\Light.xaml;Views\DiskBackupWizard.xaml;Views\PartitionBackupWizard.xaml;Views\WizardWindow.xaml;
 
 False
 
