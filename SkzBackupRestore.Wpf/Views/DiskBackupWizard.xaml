@@ -38,11 +38,13 @@
             <Border BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0" CornerRadius="4" Background="Transparent">
                 <Grid>
                     <ScrollViewer MaxHeight="260" Background="Transparent">
-                        <ListBox x:Name="DisksList" Margin="4" ItemsSource="{Binding Disks}"
-                                 SelectionMode="Multiple"
-                                 HorizontalContentAlignment="Stretch"
-                                 Background="Transparent"
-                                 BorderThickness="0">
+                        <!-- Loading spinner overlay -->
+                        <Grid>
+                            <ListBox x:Name="DisksList" Margin="4" ItemsSource="{Binding Disks}"
+                                     SelectionMode="Multiple"
+                                     HorizontalContentAlignment="Stretch"
+                                     Background="Transparent"
+                                     BorderThickness="0">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -86,55 +88,118 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid VerticalAlignment="Center">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="12" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Display}" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                                                   TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Grid.Column="2" Text="{Binding DisplaySize}" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                                                   HorizontalAlignment="Right"/>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid Grid.Row="0" VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="12" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Display}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding DisplaySize}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <Grid Grid.Row="1" Margin="0,4,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="12" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                <TextBlock Text="Partition Style: " 
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                           FontSize="12"/>
+                                                <TextBlock Text="{Binding PartitionStyleDisplay}" 
+                                                           Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                           FontSize="12"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="2" Text="{Binding LettersDisplay}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                                       FontSize="12"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        
+                        <!-- Loading spinner -->
+                        <StackPanel x:Name="LoadingSpinner" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                    Background="{DynamicResource SystemControlBackgroundAltHighBrush}" 
+                                    Opacity="0.9" Margin="20">
+                            <ProgressBar IsIndeterminate="True" Width="32" Height="32" Margin="0,0,0,12"/>
+                            <TextBlock Text="Loading disk information..." 
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+                            <ListBox x:Name="DebugOutput" 
+                                     HorizontalAlignment="Center"
+                                     Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                                     FontSize="8" Margin="0,8,0,0" 
+                                     Height="40" Width="400"
+                                     Background="Transparent" BorderThickness="0"
+                                     Padding="0" ItemContainerStyle="{x:Null}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                                <ListBox.Items>
+                                    <TextBlock Text="Starting disk enumeration..." TextWrapping="Wrap"/>
+                                </ListBox.Items>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0">
+                                            <TextBlock.RenderTransform>
+                                                <TranslateTransform Y="0"/>
+                                            </TextBlock.RenderTransform>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Opacity" Value="1.0"/>
+                                                    <Style.Triggers>
+                                                        <EventTrigger RoutedEvent="Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                                     From="0.0" To="1.0" Duration="0:0:0.3"/>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Y"
+                                                                                     From="20" To="0" Duration="0:0:0.3">
+                                                                        <DoubleAnimation.EasingFunction>
+                                                                            <CubicEase EasingMode="EaseOut"/>
+                                                                        </DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.Style>
+                                    <Style TargetType="ListBox">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBox">
+                                                    <Border Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}">
+                                                        <ScrollViewer Focusable="false" Padding="{TemplateBinding Padding}">
+                                                            <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                                        </ScrollViewer>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.Style>
+                            </ListBox>
+                        </StackPanel>
+                    </Grid>
                     </ScrollViewer>
-                    <!-- Empty state overlay when there are no disks -->
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="No disks found"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasItems, ElementName=DisksList}" Value="False">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" MaxWidth="480"
-                                   Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"
-                                   Visibility="Collapsed">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasItems, ElementName=DisksList}" Value="False">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                            <Run Text="Details: "/>
-                            <Run Text="{Binding ErrorMessage}"/>
-                        </TextBlock>
-                    </StackPanel>
                 </Grid>
             </Border>
             <TextBlock Text="Each selection represents an entire physical disk (all partitions)."
@@ -168,11 +233,11 @@
                       Grid.Column="0"
                       VerticalAlignment="Center"
                       Content="Perform image validation upon completion"/>
-                <CheckBox x:Name="ExternalConsoleCheckbox"
+                <CheckBox x:Name="SectorBySectorCheckbox"
                   Margin="16,0,0,0"
                           VerticalAlignment="Center"
-                          Content="Run in external console"
-                          ToolTip="Use an external console window so ImagingUtility can use its normal console progress."/>
+                          Content="Sector-by-sector Copy"
+                          ToolTip="Create a complete bit-for-bit copy including unallocated space. Results in larger files and slower processing."/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,0,0">

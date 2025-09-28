@@ -242,25 +242,41 @@ namespace SkzBackupRestore.Wpf.Views
                         }
                     }
 
-                    string imageName = !string.IsNullOrEmpty(info.volumeGuid) ? info.volumeGuid : SanitizeForFilename(info.devicePath);
+                    // Use drive letter for filename if available, otherwise fall back to GUID or sanitized device path
+                    string imageName;
+                    if (!string.IsNullOrEmpty(part.DriveLetter))
+                    {
+                        // Use drive letter (e.g., "C" for "C:")
+                        imageName = part.DriveLetter.TrimEnd(':');
+                    }
+                    else if (!string.IsNullOrEmpty(info.volumeGuid))
+                    {
+                        // Fall back to volume GUID
+                        imageName = info.volumeGuid;
+                    }
+                    else
+                    {
+                        // Final fallback to sanitized device path
+                        imageName = SanitizeForFilename(info.devicePath);
+                    }
                     string outFile = Path.Combine(outDir, $"{imageName}.skzimg");
 
                     OnUI(() => { StatusText = $"Backing up partition {part.PartitionNumber}..."; SpeedText = string.Empty; EtaText = string.Empty; });
                     AppendFriendlyLog($"Starting backup of partition {part.PartitionNumber} (device {info.devicePath}) -> {outFile}");
 
-                    string imgArgs = $"image --device {QuoteArg(deviceArg)} --out {QuoteArg(outFile)}" + (useVss ? " --use-vss" : string.Empty);
+                    string imgArgs = $"image --device {QuoteArg(deviceArg)} --out {QuoteArg(outFile)}";
+                    if (SectorBySectorCheckbox.IsChecked == true)
+                    {
+                        imgArgs += " --all-blocks";
+                    }
+                    else if (useVss)
+                    {
+                        imgArgs += " --use-vss";
+                    }
                     AppendFriendlyLog($"> {exePath} {imgArgs}");
                     _sawConsoleHandleIssue = false;
                     (bool ok, int exitCode) res;
-                    if (ExternalConsoleCheckbox.IsChecked == true)
-                    {
-                        AppendFriendlyLog("External console requested by user.");
-                        res = await RunInExternalConsoleAsync(exePath, imgArgs, ct);
-                    }
-                    else
-                    {
-                        res = await RunProcessWithProgressAsync(exePath, imgArgs, ct, phase: "backup");
-                    }
+                    res = await RunProcessWithProgressAsync(exePath, imgArgs, ct, phase: "backup");
                     var (ok, exit) = res;
                     if (!ok && _sawConsoleHandleIssue)
                     {
@@ -284,15 +300,7 @@ namespace SkzBackupRestore.Wpf.Views
                         AppendFriendlyLog($"> {exePath} {verifyArgs}");
                         _sawConsoleHandleIssue = false;
                         (bool vok, int vexit) vres;
-                        if (ExternalConsoleCheckbox.IsChecked == true)
-                        {
-                            AppendFriendlyLog("External console requested by user (verify).");
-                            vres = await RunInExternalConsoleAsync(exePath, verifyArgs, ct);
-                        }
-                        else
-                        {
-                            vres = await RunProcessWithProgressAsync(exePath, verifyArgs, ct, phase: "verify");
-                        }
+                        vres = await RunProcessWithProgressAsync(exePath, verifyArgs, ct, phase: "verify");
                         var (vok, vcode) = vres;
                         if (!vok && _sawConsoleHandleIssue)
                         {
@@ -350,7 +358,7 @@ namespace SkzBackupRestore.Wpf.Views
             LocationPanel.Visibility = Visibility.Collapsed;
             RunPanel.Visibility = Visibility.Visible;
             ValidateAfterCheckbox.IsEnabled = false;
-            if (ExternalConsoleCheckbox != null) ExternalConsoleCheckbox.IsEnabled = false;
+            if (SectorBySectorCheckbox != null) SectorBySectorCheckbox.IsEnabled = false;
             if (StartButton != null) StartButton.Visibility = Visibility.Collapsed;
         }
 
@@ -436,7 +444,19 @@ namespace SkzBackupRestore.Wpf.Views
         private void AppendFriendlyLog(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
-            OnUI(() => { if (string.IsNullOrEmpty(LogText)) LogText = text; else LogText += "\r\n" + text; });
+            OnUI(() => 
+            { 
+                if (string.IsNullOrEmpty(LogText)) 
+                    LogText = text; 
+                else 
+                    LogText += "\r\n\r\n" + text; // Add blank line between entries
+                
+                // Auto-scroll to bottom when text changes
+                if (LogTextBox != null)
+                {
+                    LogTextBox.ScrollToEnd();
+                }
+            });
             if (!string.IsNullOrEmpty(_runLogPath)) { try { File.AppendAllText(_runLogPath, text + Environment.NewLine); } catch { } }
         }
 
@@ -569,8 +589,29 @@ namespace SkzBackupRestore.Wpf.Views
                 if (line.IndexOf("snapshot", StringComparison.OrdinalIgnoreCase) >= 0 && line.IndexOf("creating", StringComparison.OrdinalIgnoreCase) >= 0) OnUI(() => StatusText = "Creating VSS snapshot...");
                 else if (line.IndexOf("scanning", StringComparison.OrdinalIgnoreCase) >= 0) OnUI(() => StatusText = "Scanning used sectors...");
                 else if (line.IndexOf("writing", StringComparison.OrdinalIgnoreCase) >= 0 || line.IndexOf("compress", StringComparison.OrdinalIgnoreCase) >= 0) OnUI(() => StatusText = "Writing image...");
+                
+                // Look for completion summary information
+                if (line.IndexOf("Image complete", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                    line.IndexOf("Elapsed:", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    line.IndexOf("Avg:", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // This looks like a completion summary line - add it to the log
+                    OnUI(() => AppendFriendlyLog($"📊 {line.Trim()}"));
+                }
             }
-            else if (phase == "verify") { if (line.IndexOf("verify", StringComparison.OrdinalIgnoreCase) >= 0) OnUI(() => StatusText = "Verifying images..."); }
+            else if (phase == "verify") 
+            { 
+                if (line.IndexOf("verify", StringComparison.OrdinalIgnoreCase) >= 0) OnUI(() => StatusText = "Verifying images...");
+                
+                // Look for verification completion summary
+                if (line.IndexOf("Verification complete", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                    line.IndexOf("Elapsed:", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    line.IndexOf("Avg:", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // This looks like a verification completion summary line
+                    OnUI(() => AppendFriendlyLog($"✅ {line.Trim()}"));
+                }
+            }
         }
 
         private void UpdateWindowTitlePercent(double? percent, string? prefix = null)

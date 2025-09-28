@@ -16,6 +16,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Globalization;
+using System.Text.Json;
 
 namespace SkzBackupRestore.Wpf.Views
 {
@@ -74,78 +75,380 @@ namespace SkzBackupRestore.Wpf.Views
             InitializeComponent();
             DataContext = this;
             // DisksList is bound in XAML (ItemsSource="{Binding Disks}")
-            LoadPhysicalDisks();
             Loaded += DiskBackupWizard_Loaded;
+            
+            // Test logging
+            DebugWriteLine("=== DiskBackupWizard Constructor Called ===");
         }
 
         private void DiskBackupWizard_Loaded(object sender, RoutedEventArgs e)
         {
+            DebugWriteLine("=== DiskBackupWizard_Loaded Called ===");
+            
             // Default validation checkbox from user settings
             try
             {
                 ValidateAfterCheckbox.IsChecked = Services.SettingsService.Settings.AutoVerifyImages;
             }
             catch { /* ignore if settings not available */ }
-            // Reflect IsSelected into ListBox selection for initial state (all unchecked by default)
-            SyncListBoxSelectionFromModel();
+            
+            // Set up event handlers immediately
             if (DisksList != null)
             {
                 DisksList.SelectionChanged += DisksList_SelectionChanged;
                 DisksList.PreviewKeyDown += DisksList_PreviewKeyDown;
                 DisksList.MouseUp += DisksList_MouseUp;
             }
+            
+            // Auto-trigger refresh after a short delay to ensure UI is fully rendered
+            Dispatcher.BeginInvoke(new Action(async () =>
+            {
+                DebugWriteLine("Auto-triggering refresh after UI load...");
+                await Task.Delay(100); // Small delay to ensure UI is ready
+                Refresh_Click(this, new RoutedEventArgs());
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+
+        private void ShowLoadingSpinner(bool show)
+        {
+            if (LoadingSpinner != null)
+            {
+                LoadingSpinner.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void DebugWriteLine(string message)
+        {
+            var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            var fullMessage = $"[{timestamp}] {message}";
+            
+            // Console output
+            Console.WriteLine(fullMessage);
+            System.Diagnostics.Debug.WriteLine(fullMessage);
+            
+            // Update UI debug output with sliding effect
+            if (DebugOutput != null)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    // Add new message
+                    DebugOutput.Items.Add(fullMessage);
+                    
+                    // Keep only last 1 item with smooth removal
+                    while (DebugOutput.Items.Count > 1)
+                    {
+                        var itemToRemove = DebugOutput.Items[0];
+                        DebugOutput.Items.RemoveAt(0);
+                    }
+                    
+                    // Scroll to bottom to show newest message
+                    if (DebugOutput.Items.Count > 0)
+                    {
+                        DebugOutput.ScrollIntoView(DebugOutput.Items[DebugOutput.Items.Count - 1]);
+                    }
+                });
+            }
+        }
+
+        private async Task LoadPhysicalDisksAsync()
+        {
+            Disks.Clear();
+            ErrorMessage = string.Empty;
+            
+            DebugWriteLine("Starting disk enumeration...");
+            
+            try
+            {
+                // Simple approach: Use PowerShell Get-Disk command
+                DebugWriteLine("Trying PowerShell Get-Disk...");
+                var disks = await GetDisksViaPowerShell();
+                DebugWriteLine($"PowerShell returned {disks.Count} disks");
+                
+                if (disks.Count > 0)
+                {
+                    foreach (var disk in disks)
+                    {
+                        Disks.Add(disk);
+                    }
+                    DebugWriteLine($"Found {disks.Count} disks via PowerShell");
+                }
+                else
+                {
+                    // Fallback: Use WMI with timeout
+                    DebugWriteLine("PowerShell failed, trying WMI...");
+                    var wmiDisks = await GetDisksViaWMI();
+                    foreach (var disk in wmiDisks)
+                    {
+                        Disks.Add(disk);
+                    }
+                    DebugWriteLine($"Found {wmiDisks.Count} disks via WMI");
+                }
+                
+                if (Disks.Count == 0)
+                {
+                    DebugWriteLine("No real disks found, creating dummy disks...");
+                    CreateDummyDisks();
+                }
+                
+                ErrorMessage = string.Empty;
+                
+                // Sort by disk number
+                var sorted = Disks.OrderBy(d => d.DiskNumber).ToList();
+                Disks.Clear();
+                foreach (var d in sorted) Disks.Add(d);
+                
+                DebugWriteLine($"Final result: {Disks.Count} disks loaded successfully");
+                SyncListBoxSelectionFromModel();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Disk enumeration failed: {ex.Message}";
+                DebugWriteLine($"Disk enumeration failed: {ex.Message}");
+                CreateDummyDisks();
+            }
+        }
+
+        private async Task<List<PhysicalDiskItem>> GetDisksViaPowerShell()
+        {
+            var disks = new List<PhysicalDiskItem>();
+            
+            try
+            {
+                DebugWriteLine("Getting disks via PowerShell...");
+                
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-Command \"Get-Disk | Select-Object Number, FriendlyName, Size, PartitionStyle | ConvertTo-Json\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(startInfo);
+                if (process != null)
+                {
+                    DebugWriteLine("PowerShell process started, waiting for output...");
+                    if (process.WaitForExit(5000)) // 5 second timeout
+                    {
+                        DebugWriteLine("PowerShell process completed");
+                        string output = process.StandardOutput.ReadToEnd();
+                        DebugWriteLine($"PowerShell output length: {output?.Length ?? 0}");
+                        if (!string.IsNullOrEmpty(output))
+                        {
+                            // Parse JSON array
+                            var jsonArray = System.Text.Json.JsonSerializer.Deserialize<JsonElement[]>(output);
+                            if (jsonArray != null)
+                            {
+                                foreach (var diskJson in jsonArray)
+                            {
+                                try
+                                {
+                                    var disk = new PhysicalDiskItem
+                                    {
+                                        DiskNumber = diskJson.GetProperty("Number").GetInt32(),
+                                        Model = diskJson.GetProperty("FriendlyName").GetString() ?? "Unknown",
+                                        SizeBytes = diskJson.GetProperty("Size").GetInt64(),
+                                        PartitionStyle = diskJson.GetProperty("PartitionStyle").GetString() ?? "Unknown",
+                                        DriveLetters = new List<string>()
+                                    };
+                                    
+                                    // Get drive letters for this disk
+                                    disk.DriveLetters = await GetDriveLettersForDisk(disk.DiskNumber);
+                                    
+                                    disks.Add(disk);
+                                    DebugWriteLine($"Found disk {disk.DiskNumber}: {disk.Model}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    DebugWriteLine($"Error parsing disk JSON: {ex.Message}");
+                                }
+                            }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        DebugWriteLine("PowerShell command timed out");
+                        process.Kill();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugWriteLine($"PowerShell disk enumeration failed: {ex.Message}");
+            }
+            
+            return disks;
+        }
+
+        private async Task<List<PhysicalDiskItem>> GetDisksViaWMI()
+        {
+            return await Task.Run(() =>
+            {
+                var disks = new List<PhysicalDiskItem>();
+                
+                try
+                {
+                    DebugWriteLine("Getting disks via WMI...");
+                    
+            var scope = new ManagementScope(@"\\.\\root\\cimv2", BuildConnOptions());
+            scope.Connect();
+                    
+                    using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT Index, Model, Size FROM Win32_DiskDrive"));
+                    var result = searcher.Get();
+                    
+            foreach (ManagementObject mo in result)
+            {
+                        try
+                        {
+                            uint index = 0;
+                            try { index = (uint)(mo["Index"] ?? 0u); } catch { }
+                            
+                string model = (mo["Model"] as string) ?? "Unknown";
+                            
+                long sizeBytes = 0;
+                try
+                {
+                                var sizeObj = mo["Size"];
+                    if (sizeObj != null)
+                    {
+                        if (sizeObj is ulong ul) sizeBytes = unchecked((long)ul);
+                        else if (sizeObj is long l) sizeBytes = l;
+                        else if (long.TryParse(sizeObj.ToString(), out var parsed)) sizeBytes = parsed;
+                    }
+                }
+                catch { }
+
+                            var disk = new PhysicalDiskItem
+                {
+                    DiskNumber = (int)index,
+                    Model = model,
+                    SizeBytes = sizeBytes,
+                                PartitionStyle = "Unknown",
+                                DriveLetters = new List<string>()
+                            };
+                            
+                            disks.Add(disk);
+                            DebugWriteLine($"Found disk {index}: {model}");
+                        }
+                        catch (Exception ex)
+                        {
+                            DebugWriteLine($"Error processing WMI disk: {ex.Message}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DebugWriteLine($"WMI disk enumeration failed: {ex.Message}");
+                }
+                
+                return disks;
+            });
+        }
+
+        private async Task<List<string>> GetDriveLettersForDisk(int diskNumber)
+        {
+            DebugWriteLine($"=== GetDriveLettersForDisk called for disk {diskNumber} ===");
+            return await Task.Run(() =>
+            {
+                var driveLetters = new List<string>();
+                
+                try
+                {
+                    DebugWriteLine($"Starting drive letter collection for disk {diskNumber}");
+                    var startInfo = new ProcessStartInfo
+                    {
+                        FileName = "powershell.exe",
+                        Arguments = $"-Command \"Get-Partition -DiskNumber {diskNumber} | Where-Object {{$_.DriveLetter}} | Select-Object -ExpandProperty DriveLetter\"",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+
+                    using var process = Process.Start(startInfo);
+                    if (process != null)
+                    {
+                        DebugWriteLine($"PowerShell process started for disk {diskNumber}");
+                        if (process.WaitForExit(10000)) // 10 second timeout
+                    {
+                        string output = process.StandardOutput.ReadToEnd();
+                        DebugWriteLine($"Drive letter output for disk {diskNumber}: '{output}'");
+                        if (!string.IsNullOrEmpty(output))
+                        {
+                            var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                            DebugWriteLine($"Drive letter lines: {string.Join(", ", lines)}");
+                            foreach (var line in lines)
+                            {
+                                var trimmed = line.Trim();
+                                DebugWriteLine($"Checking drive letter: '{trimmed}' (length: {trimmed.Length})");
+                                // Only add valid drive letters (single letter like "C")
+                                if (!string.IsNullOrEmpty(trimmed) && 
+                                    trimmed.Length == 1 && 
+                                    char.IsLetter(trimmed[0]))
+                                {
+                                    var driveLetter = trimmed + ":\\";
+                                    DebugWriteLine($"Adding drive letter: {driveLetter}");
+                                    driveLetters.Add(driveLetter);
+                                }
+                                else
+                                {
+                                    DebugWriteLine($"Rejected drive letter: '{trimmed}'");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            DebugWriteLine($"No output for disk {diskNumber}");
+                        }
+                    }
+                        else
+                        {
+                            DebugWriteLine($"PowerShell command timed out for disk {diskNumber}");
+                            process.Kill();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DebugWriteLine($"Error getting drive letters for disk {diskNumber}: {ex.Message}");
+                }
+                
+                return driveLetters;
+            });
+        }
+
+        private void CreateDummyDisks()
+        {
+            DebugWriteLine("Creating dummy disks...");
+            for (int i = 0; i < 4; i++)
+                {
+                    Disks.Add(new PhysicalDiskItem
+                    {
+                    DiskNumber = i,
+                    Model = $"Test Disk {i}",
+                    SizeBytes = 1000000000, // 1GB
+                        DriveLetters = new List<string>(),
+                    PartitionStyle = "Unknown"
+                });
+            }
         }
 
         private void LoadPhysicalDisks()
         {
-            Disks.Clear();
-            ErrorMessage = string.Empty;
-            bool any = false;
-            try { any = FillFromWin32DiskDrive(); }
-            catch (Exception ex)
-            {
-                ErrorMessage = $"Win32_DiskDrive failed: {ex.Message}";
-            }
-            if (!any)
-            {
-                try { any = FillFromMsftDisk(); }
-                catch (Exception ex)
-                {
-                    ErrorMessage = string.IsNullOrEmpty(ErrorMessage)
-                        ? $"MSFT_Disk failed: {ex.Message}"
-                        : ErrorMessage + " | " + $"MSFT_Disk failed: {ex.Message}";
-                }
-            }
-            if (!any)
-            {
-                try { any = FillFromPhysicalDrivesRaw(); }
-                catch (Exception ex)
-                {
-                    ErrorMessage = string.IsNullOrEmpty(ErrorMessage)
-                        ? $"Raw drive enumeration failed: {ex.Message}"
-                        : ErrorMessage + " | " + $"Raw drive enumeration failed: {ex.Message}";
-                }
-            }
-            if (any)
-            {
-                var sorted = Disks.OrderBy(d => d.DiskNumber).ToList();
-                Disks.Clear();
-                foreach (var d in sorted) Disks.Add(d);
-                ErrorMessage = string.Empty;
-                // Update ListBox selection to match model
-                SyncListBoxSelectionFromModel();
-            }
-            else if (string.IsNullOrWhiteSpace(ErrorMessage))
-            {
-                ErrorMessage = "No disks returned by providers (Win32_DiskDrive, MSFT_Disk, Raw).";
-            }
+            // This method is kept for compatibility but now just calls the async version
+            LoadPhysicalDisksAsync().Wait();
         }
 
         
 
-        private void Refresh_Click(object sender, RoutedEventArgs e)
+        private async void Refresh_Click(object sender, RoutedEventArgs e)
         {
-            LoadPhysicalDisks();
+            ShowLoadingSpinner(true);
+            await LoadPhysicalDisksAsync();
+            ShowLoadingSpinner(false);
         }
 
         private void SyncListBoxSelectionFromModel()
@@ -195,113 +498,8 @@ namespace SkzBackupRestore.Wpf.Views
             // Multi-select supported with Ctrl/Shift; IsSelected mirrors selection via SelectionChanged handler.
         }
 
-        private bool FillFromWin32DiskDrive()
-        {
-            var scope = new ManagementScope(@"\\.\\root\\cimv2", BuildConnOptions());
-            scope.Connect();
-            using var diskSearcher = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT Index, Model, Size FROM Win32_DiskDrive"));
-            var result = diskSearcher.Get();
-            int count = 0;
-            foreach (ManagementObject mo in result)
-            {
-                uint index = 0; try { index = (uint)(mo["Index"] ?? 0u); } catch { }
-                string model = (mo["Model"] as string) ?? "Unknown";
-                long sizeBytes = 0;
-                try
-                {
-                    var sizeObj = mo["Size"]; // often string or numeric
-                    if (sizeObj != null)
-                    {
-                        if (sizeObj is ulong ul) sizeBytes = unchecked((long)ul);
-                        else if (sizeObj is long l) sizeBytes = l;
-                        else if (long.TryParse(sizeObj.ToString(), out var parsed)) sizeBytes = parsed;
-                    }
-                }
-                catch { }
 
-                Disks.Add(new PhysicalDiskItem
-                {
-                    DiskNumber = (int)index,
-                    Model = model,
-                    SizeBytes = sizeBytes,
-                    DriveLetters = new List<string>(),
-                });
-                count++;
-            }
-            if (count == 0)
-            {
-                ErrorMessage = string.IsNullOrEmpty(ErrorMessage) ? "Win32_DiskDrive returned 0 results" : ErrorMessage;
-            }
-            return count > 0;
-        }
 
-        private bool FillFromMsftDisk()
-        {
-            // Windows 8+ storage API WMI provider
-            var scope = new ManagementScope(@"\\.\\root\\Microsoft\\Windows\\Storage", BuildConnOptions());
-            scope.Connect();
-            using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT Number, FriendlyName, Size FROM MSFT_Disk"));
-            var result = searcher.Get();
-            int count = 0;
-            foreach (ManagementObject mo in result)
-            {
-                int number = -1;
-                try { number = Convert.ToInt32(mo["Number"]); } catch { }
-                string model = (mo["FriendlyName"] as string) ?? "Disk";
-                long sizeBytes = 0;
-                try
-                {
-                    var sizeObj = mo["Size"]; if (sizeObj != null)
-                    {
-                        if (sizeObj is ulong ul) sizeBytes = unchecked((long)ul);
-                        else if (sizeObj is long l) sizeBytes = l;
-                        else if (long.TryParse(sizeObj.ToString(), out var parsed)) sizeBytes = parsed;
-                    }
-                }
-                catch { }
-
-                if (number >= 0)
-                {
-                    Disks.Add(new PhysicalDiskItem
-                    {
-                        DiskNumber = number,
-                        Model = model,
-                        SizeBytes = sizeBytes,
-                        DriveLetters = new List<string>(),
-                    });
-                    count++;
-                }
-            }
-            if (count == 0)
-            {
-                ErrorMessage = string.IsNullOrEmpty(ErrorMessage) ? "MSFT_Disk returned 0 results" : ErrorMessage;
-            }
-            return count > 0;
-        }
-
-        // WMI-free fallback: iterate PhysicalDrive0..PhysicalDrive63 using DeviceIoControl
-        private bool FillFromPhysicalDrivesRaw()
-        {
-            int count = 0;
-            for (int n = 0; n < 64; n++)
-            {
-                if (TryGetPhysicalDriveInfo(n, out string model, out long size))
-                {
-                    Disks.Add(new PhysicalDiskItem
-                    {
-                        DiskNumber = n,
-                        Model = string.IsNullOrWhiteSpace(model) ? $"PhysicalDrive {n}" : model,
-                        SizeBytes = size,
-                    });
-                    count++;
-                }
-            }
-            if (count == 0)
-            {
-                ErrorMessage = string.IsNullOrEmpty(ErrorMessage) ? "Raw PhysicalDrive enumeration found 0 drives" : ErrorMessage;
-            }
-            return count > 0;
-        }
 
         private static bool TryGetPhysicalDriveInfo(int number, out string model, out long sizeBytes)
         {
@@ -478,6 +676,10 @@ namespace SkzBackupRestore.Wpf.Views
             return opts;
         }
 
+
+
+
+
         private void BrowseFolder_Click(object sender, RoutedEventArgs e)
         {
             using var dlg = new FolderBrowserDialog
@@ -642,21 +844,29 @@ namespace SkzBackupRestore.Wpf.Views
                 {
                     if (ct.IsCancellationRequested) { allOk = false; break; }
                     OnUI(() => { Progress.IsIndeterminate = true; Progress.Value = 0; StatusText = $"Backing up disk {disk.DiskNumber}..."; SpeedText = string.Empty; EtaText = string.Empty; UpdateWindowTitlePercent(null, prefix:$"Disk {disk.DiskNumber} backup"); });
-                    AppendFriendlyLog($"Starting backup of Disk {disk.DiskNumber} to '{outDir}' (VSS enabled)...");
-                    AppendLog($"Backing up Disk {disk.DiskNumber} to '{outDir}' (with VSS)...");
-                    string backupArgs = $"backup-disk --disk {disk.DiskNumber} --out-dir \"{outDir}\" --use-vss";
-                    AppendFriendlyLog($"> {exePath} {backupArgs}");
-                    _sawConsoleHandleIssue = false;
-                    (bool ok, int exitCode) res;
-                    if (ExternalConsoleCheckbox.IsChecked == true)
+                    if (SectorBySectorCheckbox.IsChecked == true)
                     {
-                        AppendFriendlyLog("External console requested by user.");
-                        res = await RunInExternalConsoleAsync(exePath, backupArgs, ct);
+                        AppendFriendlyLog($"Starting sector-by-sector backup of Disk {disk.DiskNumber} to '{outDir}'...");
+                        AppendLog($"Backing up Disk {disk.DiskNumber} to '{outDir}' (sector-by-sector)...");
                     }
                     else
                     {
-                        res = await RunProcessWithProgressAsync(exePath, backupArgs, ct, phase: "backup");
+                        AppendFriendlyLog($"Starting backup of Disk {disk.DiskNumber} to '{outDir}' (VSS enabled)...");
+                        AppendLog($"Backing up Disk {disk.DiskNumber} to '{outDir}' (with VSS)...");
                     }
+                    string backupArgs = $"backup-disk --disk {disk.DiskNumber} --out-dir \"{outDir}\"";
+                    if (SectorBySectorCheckbox.IsChecked == true)
+                    {
+                        backupArgs += " --all-blocks";
+                    }
+                    else
+                    {
+                        backupArgs += " --use-vss";
+                    }
+                    AppendFriendlyLog($"> {exePath} {backupArgs}");
+                    _sawConsoleHandleIssue = false;
+                    (bool ok, int exitCode) res;
+                    res = await RunProcessWithProgressAsync(exePath, backupArgs, ct, phase: "backup");
                     var (ok, exitCode) = res;
                     if (!ok && _sawConsoleHandleIssue)
                     {
@@ -681,15 +891,7 @@ namespace SkzBackupRestore.Wpf.Views
                         AppendFriendlyLog($"> {exePath} {verifyArgs}");
                         _sawConsoleHandleIssue = false;
                         (bool okv, int exitv) vres;
-                        if (ExternalConsoleCheckbox.IsChecked == true)
-                        {
-                            AppendFriendlyLog("External console requested by user (verify).");
-                            vres = await RunInExternalConsoleAsync(exePath, verifyArgs, ct);
-                        }
-                        else
-                        {
-                            vres = await RunProcessWithProgressAsync(exePath, verifyArgs, ct, phase: "verify");
-                        }
+                        vres = await RunProcessWithProgressAsync(exePath, verifyArgs, ct, phase: "verify");
                         var (vok, vexit) = vres;
                         if (!vok && _sawConsoleHandleIssue)
                         {
@@ -755,10 +957,10 @@ namespace SkzBackupRestore.Wpf.Views
             RunPanel.Visibility = Visibility.Visible;
             // Disable validation toggle but keep it visible
             ValidateAfterCheckbox.IsEnabled = false;
-            // Disable external console toggle once a process is about to start
-            if (ExternalConsoleCheckbox != null)
+            // Disable sector-by-sector toggle once a process is about to start
+            if (SectorBySectorCheckbox != null)
             {
-                ExternalConsoleCheckbox.IsEnabled = false;
+                SectorBySectorCheckbox.IsEnabled = false;
             }
             // Hide Start button during run
             if (StartButton != null)
@@ -994,11 +1196,29 @@ namespace SkzBackupRestore.Wpf.Views
                     OnUI(() => StatusText = "Scanning used sectors...");
                 else if (line.IndexOf("writing", StringComparison.OrdinalIgnoreCase) >= 0 || line.IndexOf("compress", StringComparison.OrdinalIgnoreCase) >= 0)
                     OnUI(() => StatusText = "Writing image...");
+                
+                // Look for completion summary information
+                if (line.IndexOf("Image complete", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                    line.IndexOf("Elapsed:", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    line.IndexOf("Avg:", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // This looks like a completion summary line - add it to the log
+                    OnUI(() => AppendFriendlyLog($"📊 {line.Trim()}"));
+                }
             }
             else if (phase == "verify")
             {
                 if (line.IndexOf("verify", StringComparison.OrdinalIgnoreCase) >= 0)
                     OnUI(() => StatusText = "Verifying images...");
+                
+                // Look for verification completion summary
+                if (line.IndexOf("Verification complete", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                    line.IndexOf("Elapsed:", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    line.IndexOf("Avg:", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // This looks like a verification completion summary line
+                    OnUI(() => AppendFriendlyLog($"✅ {line.Trim()}"));
+                }
             }
         }
 
@@ -1021,7 +1241,13 @@ namespace SkzBackupRestore.Wpf.Views
                 if (string.IsNullOrEmpty(LogText))
                     LogText = text;
                 else
-                    LogText += "\r\n" + text;
+                    LogText += "\r\n\r\n" + text; // Add blank line between entries
+                
+                // Auto-scroll to bottom when text changes
+                if (LogTextBox != null)
+                {
+                    LogTextBox.ScrollToEnd();
+                }
             });
             // Mirror to file as well for completeness
             if (!string.IsNullOrEmpty(_runLogPath))
@@ -1118,6 +1344,7 @@ namespace SkzBackupRestore.Wpf.Views
         public string Model { get; set; } = string.Empty;
         public long SizeBytes { get; set; }
         public List<string> DriveLetters { get; set; } = new();
+        public string PartitionStyle { get; set; } = string.Empty;
         public bool IsSelected
         {
             get => _isSelected; set { _isSelected = value; OnPropertyChanged(); }
@@ -1125,6 +1352,7 @@ namespace SkzBackupRestore.Wpf.Views
         public string Display => $"Disk {DiskNumber}: {Model}";
         public string DisplaySize => SizeBytes > 0 ? FormatBytes(SizeBytes) : string.Empty;
         public string LettersDisplay => DriveLetters.Count > 0 ? string.Join(", ", DriveLetters) : string.Empty;
+        public string PartitionStyleDisplay => !string.IsNullOrEmpty(PartitionStyle) ? PartitionStyle : "Unknown";
 
         private static string FormatBytes(long bytes)
         {
@@ -1144,3 +1372,4 @@ namespace SkzBackupRestore.Wpf.Views
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
+

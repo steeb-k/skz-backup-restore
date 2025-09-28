@@ -162,11 +162,11 @@
                     <CheckBox x:Name="ValidateAfterCheckbox"
                               VerticalAlignment="Center"
                               Content="Perform image validation upon completion"/>
-                    <CheckBox x:Name="ExternalConsoleCheckbox"
+                    <CheckBox x:Name="SectorBySectorCheckbox"
                               Margin="16,0,0,0"
                               VerticalAlignment="Center"
-                              Content="Run in external console"
-                              ToolTip="Use an external console window so ImagingUtility can use its normal console progress."/>
+                              Content="Sector-by-sector Copy"
+                              ToolTip="Create a complete bit-for-bit copy including unallocated space. Results in larger files and slower processing."/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,0,0">
