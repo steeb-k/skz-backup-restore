@@ -7,6 +7,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
+[assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("thirdparty/imagingutility/imagingutility.exe")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("thirdparty/imagingutility/win-arm64/createdump.exe")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("thirdparty/imagingutility/win-arm64/imagingutility.exe")]
 [assembly: System.Windows.Resources.AssemblyAssociatedContentFileAttribute("thirdparty/imagingutility/win-x64/createdump.exe")]

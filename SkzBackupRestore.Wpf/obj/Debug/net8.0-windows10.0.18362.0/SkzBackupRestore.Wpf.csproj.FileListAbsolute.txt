@@ -178,3 +178,4 @@ c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\obj\Debug\net8.0-windows1
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\obj\Debug\net8.0-windows10.0.18362.0\ref\SkzBackupRestore.Wpf.dll
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\bin\Debug\net8.0-windows10.0.18362.0\ThirdParty\ImagingUtility\win-arm64\createdump.exe
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\bin\Debug\net8.0-windows10.0.18362.0\ThirdParty\ImagingUtility\win-x64\createdump.exe
+c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\bin\Debug\net8.0-windows10.0.18362.0\ThirdParty\ImagingUtility\ImagingUtility.exe

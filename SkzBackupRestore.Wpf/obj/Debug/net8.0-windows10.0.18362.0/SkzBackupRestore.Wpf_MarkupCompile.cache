@@ -11,7 +11,7 @@ false
 TRACE;DEBUG;NET;NET8_0;NETCOREAPP
 c:\Users\steeb\skz-backup-restore\SkzBackupRestore.Wpf\App.xaml
 11-1582169177
-4357676475
+530855232
 17-1387250902
 212-493790928
 MainWindow.xaml;Pages\BackupPage.xaml;Pages\ImagesPage.xaml;Pages\RestorePage.xaml;Pages\SettingsPage.xaml;Pages\UtilitiesPage.xaml;Themes\Dark.xaml;Themes\Light.xaml;Views\DiskBackupWizard.xaml;Views\PartitionBackupWizard.xaml;Views\WizardWindow.xaml;
